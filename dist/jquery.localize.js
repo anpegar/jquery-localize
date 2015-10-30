@@ -16,7 +16,7 @@ http://keith-wood.name/localisation.html
     }
     return lang;
   };
-  $.defaultLanguage = normaliseLang(navigator.languages ? navigator.languages[0] : navigator.language || navigator.userLanguage);
+  $.defaultLanguage = normaliseLang(navigator.language || navigator.userLanguage);
   $.localize = function(pkg, options) {
     var defaultCallback, fileExtension, intermediateLangData, jsonCall, lang, loadLanguage, localizeElement, localizeForSpecialKeys, localizeImageElement, localizeInputElement, localizeOptgroupElement, notifyDelegateLanguageLoaded, regexify, setAttrFromValueForKey, setTextFromValueForKey, valueForKey, wrappedSet;
     if (options == null) {
@@ -53,24 +53,35 @@ http://keith-wood.name/localisation.html
           }
       }
     };
+    loadFromDatabase = function(pkg, lang, level) {
+      jsonCall(options.urlDB, pkg, lang, level);
+    };
     jsonCall = function(file, pkg, lang, level) {
-      var ajaxOptions, errorFunc, successFunc;
+      var ajaxOptions, errorFunc, successFunc, dataParams = {};      
+      if (typeof(options.urlDBParams) !== "undefined"){
+        dataParams = options.urlDBParams;  
+      } 
       if (options.pathPrefix != null) {
         file = "" + options.pathPrefix + "/" + file;
       }
       successFunc = function(d) {
         $.extend(intermediateLangData, d);
         notifyDelegateLanguageLoaded(intermediateLangData);
-        return loadLanguage(pkg, lang, level + 1);
+        if (typeof(options.urlDB) === "undefined"){
+          return loadLanguage(pkg, lang, level + 1);
+        }
       };
       errorFunc = function() {
         if (options.fallback && options.fallback !== lang) {
           return loadLanguage(pkg, options.fallback);
         }
       };
-      ajaxOptions = {
+      ajaxOptions = {        
         url: file,
+        type: "post", 
+        contentType: "application/json; charset=utf-8",
         dataType: "json",
+        data: dataParams,
         async: false,
         timeout: options.timeout != null ? options.timeout : 500,
         success: successFunc,
@@ -99,6 +110,9 @@ http://keith-wood.name/localisation.html
         key || (key = elem.attr("rel").match(/localize\[(.*?)\]/)[1]);
         value = valueForKey(key, data);
         if (value != null) {
+          return localizeElement(elem, key, value);
+        }else{
+          value = "("+key+")";
           return localizeElement(elem, key, value);
         }
       });
@@ -182,7 +196,11 @@ http://keith-wood.name/localisation.html
     };
     lang = normaliseLang(options.language ? options.language : $.defaultLanguage);
     if (!(options.skipLanguage && lang.match(regexify(options.skipLanguage)))) {
-      loadLanguage(pkg, lang, 1);
+      if (typeof(options.urlDB) !== "undefined"){
+        loadFromDatabase(pkg, lang, 1);
+      }else{
+        loadLanguage(pkg, lang, 1);
+      }
     }
     return wrappedSet;
   };
